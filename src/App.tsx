@@ -1,441 +1,262 @@
-import React, { useState, useEffect, useRef } from "react";
-import PasswordInputZone from "./components/PasswordInputZone";
-import RobotCracker from "./components/RobotCracker";
-import BadgeCollection from "./components/BadgeCollection";
-import SafetyGuideChat from "./components/SafetyGuideChat";
-import { PasswordStrength, Badge } from "./types";
-import { ShieldCheck, Sparkles, Volume2, Info, Lock } from "lucide-react";
-
-const INITIAL_BADGES: Badge[] = [
-  {
-    id: "rookie",
-    name: "Tân binh An toàn 🥉",
-    description: "Bé đã tự mình rèn chiếc chìa khóa bảo mật đầu tiên!",
-    icon: "🛡️",
-    unlocked: false,
-    criteria: "Nhập mật mã có ít nhất 4 ký tự"
-  },
-  {
-    id: "knight",
-    name: "Hiệp sĩ Mật mã 🥈",
-    description: "Bé chế tạo thành công lá chắn 'Rất Mạnh' hoặc 'Huyền Thoại'!",
-    icon: "⚔️",
-    unlocked: false,
-    criteria: "Sức mạnh mật mã đạt mức Rất Mạnh"
-  },
-  {
-    id: "master",
-    name: "Bậc thầy Ẩn danh 🥇",
-    description: "Lá chắn kiên cố mà không để lộ một bí mật riêng tư nào!",
-    icon: "👤",
-    unlocked: false,
-    criteria: "Mật khẩu Rất Mạnh và Không dùng tên/ngày sinh"
-  },
-  {
-    id: "wall",
-    name: "Bức tường Thép 🧱",
-    description: "Chìa khóa siêu dài lâu bẻ gãy mọi mũi giáo của robot bẻ khóa!",
-    icon: "💎",
-    unlocked: false,
-    criteria: "Độ dài mật mã đạt từ 12 ký tự trở lên"
-  },
-  {
-    id: "sage",
-    name: "Đặc vụ Thông thái 🔮",
-    description: "Bé biết chủ động học hỏi các mẹo an toàn từ Người Hướng dẫn!",
-    icon: "🧠",
-    unlocked: false,
-    criteria: "Hỏi đáp với Người Hướng dẫn AI ít nhất 1 câu hỏi"
-  }
-];
+import React, { useState } from "react";
+import { planets } from "./data";
+import { Planet } from "./types";
+import InteractiveOrbit from "./components/InteractiveOrbit";
+import ScaleComparison from "./components/ScaleComparison";
+import GravityLab from "./components/GravityLab";
+import TelescopeLab from "./components/TelescopeLab";
+import LostPlanetQuest from "./components/LostPlanetQuest";
+import TeacherDashboard from "./components/TeacherDashboard";
+import InstructionGenerator from "./components/InstructionGenerator";
+import { 
+  Orbit, 
+  Settings, 
+  Users, 
+  BookOpen, 
+  Trophy, 
+  Zap, 
+  Sparkles, 
+  Eye, 
+  Compass, 
+  Video, 
+  Volume2, 
+  BarChart3,
+  Rocket
+} from "lucide-react";
 
 export default function App() {
-  const [password, setPassword] = useState("");
-  const [strength, setStrength] = useState<PasswordStrength>("weak");
-  const [properties, setProperties] = useState({
-    length: 0,
-    hasUpper: false,
-    hasLower: false,
-    hasNumber: false,
-    hasSpecial: false,
-    sensitiveDetected: false,
-    sensitiveDetails: ""
-  });
-  const [questionsAsked, setQuestionsAsked] = useState(0);
-  const [aiFeedback, setAiFeedback] = useState("");
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [badges, setBadges] = useState<Badge[]>(INITIAL_BADGES);
-  const [showCelebration, setShowCelebration] = useState(false);
-  const [celebratedBadge, setCelebratedBadge] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"design" | "simulator" | "quest" | "teacher">("design");
+  
+  // Shared States across Student Simulator modules
+  const [selectedPlanet, setSelectedPlanet] = useState<Planet>(planets[3]); // Default Earth
+  const [timeSpeed, setTimeSpeed] = useState<number>(1.5);
+  const [isARMode, setIsARMode] = useState<boolean>(false);
+  const [broadcastNotification, setBroadcastNotification] = useState<string>("");
 
-  // API settings states
-  const [apiKey, setApiKey] = useState("");
-  const [selectedModel, setSelectedModel] = useState("gemini-3-flash-preview");
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [tempApiKey, setTempApiKey] = useState("");
-  const [tempModel, setTempModel] = useState("gemini-3-flash-preview");
-
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
-
-  // Initialize API Key and Model from localStorage
-  useEffect(() => {
-    const savedKey = localStorage.getItem("x-gemini-key") || "";
-    const savedModel = localStorage.getItem("x-gemini-model") || "gemini-3-flash-preview";
-    setApiKey(savedKey);
-    setSelectedModel(savedModel);
-    setTempApiKey(savedKey);
-    setTempModel(savedModel);
-
-    // If key doesn't exist, show modal automatically
-    if (!savedKey) {
-      setShowSettingsModal(true);
-    }
-  }, []);
-
-  const handleSaveSettings = () => {
-    localStorage.setItem("x-gemini-key", tempApiKey);
-    localStorage.setItem("x-gemini-model", tempModel);
-    setApiKey(tempApiKey);
-    setSelectedModel(tempModel);
-    setShowSettingsModal(false);
-  };
-
-  // Debounced API call to get personalized feedback from the AI Safety Guide
-  useEffect(() => {
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-    }
-
-    if (!password) {
-      setAiFeedback("");
-      setIsAnalyzing(false);
-      return;
-    }
-
-    setIsAnalyzing(true);
-    setAiFeedback("🔮 Người Hướng dẫn AI đang xem xét chìa khóa mới của bé...");
-
-    debounceTimer.current = setTimeout(async () => {
-      try {
-        const res = await fetch("/api/cyber-guide/analyze", {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            "x-gemini-key": apiKey || "",
-            "x-gemini-model": selectedModel || ""
-          },
-          body: JSON.stringify({
-            length: properties.length,
-            hasUpper: properties.hasUpper,
-            hasLower: properties.hasLower,
-            hasNumber: properties.hasNumber,
-            hasSpecial: properties.hasSpecial,
-            sensitiveDetected: properties.sensitiveDetected,
-            sensitiveDetails: properties.sensitiveDetails
-          })
-        });
-
-        const data = await res.json();
-        if (res.status === 401) {
-          setAiFeedback("🔴 Yêu cầu cấu hình API Key. Bé hãy nhấp vào nút Cài đặt để thiết lập.");
-          setShowSettingsModal(true);
-        } else if (!res.ok || data.error) {
-          setAiFeedback(`🔴 Đã dừng do lỗi: ${data.error || "Không thể phân tích mật mã"}`);
-        } else if (data.feedback) {
-          setAiFeedback(data.feedback);
-        }
-      } catch (err) {
-        console.error("Analysis API failed:", err);
-        setAiFeedback("🔴 Đã dừng do lỗi: Chà, rào chắn truyền tin của ta đang bảo trì một xíu!");
-      } finally {
-        setIsAnalyzing(false);
-      }
-    }, 1500); // 1.5s debounce to keep typing smooth
-
-    return () => {
-      if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    };
-  }, [password, properties, apiKey, selectedModel]);
-
-  // Evaluate dynamic gamification badges
-  useEffect(() => {
-    let updated = false;
-    const newBadges = badges.map(badge => {
-      let nowUnlocked = badge.unlocked;
-
-      if (badge.id === "rookie") {
-        nowUnlocked = properties.length >= 4;
-      } else if (badge.id === "knight") {
-        nowUnlocked = strength === "strong" || strength === "legendary";
-      } else if (badge.id === "master") {
-        nowUnlocked = (strength === "strong" || strength === "legendary") && !properties.sensitiveDetected;
-      } else if (badge.id === "wall") {
-        nowUnlocked = properties.length >= 12;
-      } else if (badge.id === "sage") {
-        nowUnlocked = questionsAsked >= 1;
-      }
-
-      if (nowUnlocked && !badge.unlocked) {
-        updated = true;
-        // Trigger visual fanfare for newly unlocked badge
-        setCelebratedBadge(badge.name);
-        setShowCelebration(true);
-        setTimeout(() => setShowCelebration(false), 5000);
-      }
-
-      return { ...badge, unlocked: nowUnlocked };
-    });
-
-    if (updated) {
-      setBadges(newBadges);
-    }
-  }, [properties, strength, questionsAsked]);
-
-  const handlePasswordChange = (
-    newPw: string,
-    newStrength: PasswordStrength,
-    newProps: typeof properties
-  ) => {
-    setPassword(newPw);
-    setStrength(newStrength);
-    setProperties(newProps);
-  };
-
-  const handleQuestionAsked = () => {
-    setQuestionsAsked(prev => prev + 1);
+  // Handler for Classroom Sync gaze broadcast
+  const handleTeacherBroadcast = (planet: Planet) => {
+    setSelectedPlanet(planet);
+    setBroadcastNotification(`📡 GIÁO VIÊN ĐÃ KHÓA TIÊU ĐIỂM: Đồng bộ tầm nhìn lớp học về ${planet.name}!`);
+    
+    // Auto clear notification after 5 seconds
+    setTimeout(() => {
+      setBroadcastNotification("");
+    }, 5500);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-sky-50 to-white text-sky-950 font-sans pb-16">
-      {/* Top Header Row */}
-      <header className="bg-white/80 backdrop-blur-md border-b-4 border-sky-100 sticky top-0 z-40 transition-all">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-sky-500 rounded-2xl text-white shadow-md shadow-sky-200 animate-pulse">
-              <ShieldCheck className="w-7 h-7" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-black tracking-tight text-sky-950 flex items-center gap-2">
-                Phòng Thí Nghiệm Bảo Mật 🛡️
+    <div className="min-h-screen bg-[#070b19] text-slate-100 flex flex-col font-sans relative overflow-x-hidden antialiased selection:bg-indigo-500 selection:text-white" id="main-space-root">
+      {/* Decorative Nebula Lights */}
+      <div className="absolute top-[-10%] left-[-15%] w-[45%] h-[45%] bg-indigo-900/15 rounded-full blur-[140px] pointer-events-none"></div>
+      <div className="absolute bottom-[-10%] right-[-15%] w-[45%] h-[45%] bg-cyan-900/10 rounded-full blur-[140px] pointer-events-none"></div>
+
+      {/* Top Main Navigation Bar */}
+      <header className="bg-[#030712]/80 backdrop-blur-md border-b border-slate-900 sticky top-0 z-50 px-4 md:px-8 py-3 md:py-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+            <Rocket className="w-5 h-5 text-white animate-pulse" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="font-bold text-lg md:text-xl tracking-tight bg-gradient-to-r from-slate-100 via-indigo-100 to-cyan-100 bg-clip-text text-transparent">
+                Vũ Trụ 3D Tương Tác AR
               </h1>
-              <p className="text-xs font-bold text-sky-500 uppercase tracking-widest">
-                Dành Cho Các Đặc Vụ Nhí
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 flex-wrap">
-            {!apiKey ? (
-              <a 
-                href="https://aistudio.google.com/api-keys" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="text-xs font-black text-rose-600 hover:underline animate-pulse mr-1"
-              >
-                🔴 Lấy API key để sử dụng app
-              </a>
-            ) : (
-              <span className="text-xs font-bold text-emerald-600 mr-1">
-                🟢 Đã cấu hình Key
+              <span className="text-[10px] bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 font-semibold px-2 py-0.5 rounded-full">
+                Sư phạm EdTech
               </span>
-            )}
-
-            <button
-              id="settings-btn"
-              onClick={() => {
-                setTempApiKey(apiKey);
-                setTempModel(selectedModel);
-                setShowSettingsModal(true);
-              }}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-black px-4 py-2 rounded-full border border-slate-200 flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-sm"
-            >
-              ⚙️ Cài đặt (API Key)
-            </button>
-
-            <span className="bg-sky-50 text-sky-700 px-4 py-1.5 font-bold rounded-full text-xs border border-sky-100 flex items-center gap-1.5">
-              <Sparkles className="w-4.5 h-4.5 text-sky-500" />
-              Chế độ Đặc vụ Ngoại tuyến
-            </span>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Grid Content */}
-      <main className="max-w-7xl mx-auto px-6 mt-8">
-        
-        {/* Intro Banner Card */}
-        <section className="bg-gradient-to-r from-sky-500 to-indigo-500 rounded-3xl p-6 text-white mb-8 shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 opacity-15 select-none pointer-events-none transform translate-x-12 -translate-y-6">
-            <Lock className="w-64 h-64" />
-          </div>
-          <div className="relative z-10 max-w-3xl">
-            <span className="bg-white/20 px-3 py-1 text-xs font-black uppercase rounded-full tracking-wider">
-              Nhiệm Vụ Tuần Này
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-black mt-3">
-              Chế tạo chiếc "Chìa khóa vạn năng" bảo vệ kho báu!
-            </h2>
-            <p className="text-sky-100 text-sm sm:text-base mt-2 leading-relaxed">
-              Chào mừng Đặc vụ nhí đến với Phòng Thí nghiệm! Bằng cách thêm các <b>chữ cái khổng lồ</b>, 
-              <b>chữ số bí mật</b>, và <b>phép thuật bổ trợ</b>, bé sẽ chế tạo ra những chiếc chìa khóa mật mã mạnh mẽ nhất 
-              để đánh bại Robot Bẻ Khóa của Hacker. Mọi thông tin tại đây đều được giữ bí mật tuyệt đối!
+            </div>
+            <p className="text-xs text-slate-400">
+              Hệ thống Phân tích Thiết kế & Mô phỏng Trực quan AR cho Tiểu học
             </p>
           </div>
-        </section>
+        </div>
 
-        {/* Dynamic Badge unlock toast */}
-        {showCelebration && (
-          <div className="fixed top-24 right-6 bg-amber-500 text-white font-bold py-4 px-6 rounded-2xl shadow-2xl flex items-center gap-3 z-50 animate-bounce border-3 border-white">
-            <span className="text-3xl">🏆</span>
-            <div>
-              <p className="text-xs text-amber-100">HUÂN CHƯƠNG MỚI!</p>
-              <p className="text-sm">Bé vừa mở khóa thành công: {celebratedBadge}</p>
+        {/* Global Nav Tabs */}
+        <nav className="flex bg-slate-950 p-1 rounded-xl border border-slate-900 max-w-full overflow-x-auto gap-1">
+          <button
+            onClick={() => setActiveTab("design")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+              activeTab === "design"
+                ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10"
+                : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+            }`}
+          >
+            <Settings className="w-3.5 h-3.5" />
+            Studio Thiết Kế Hệ Thống
+          </button>
+          
+          <button
+            onClick={() => setActiveTab("simulator")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+              activeTab === "simulator"
+                ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10"
+                : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+            }`}
+          >
+            <Compass className="w-3.5 h-3.5" />
+            Học Sinh: Lab Vật Lý AR
+          </button>
+
+          <button
+            onClick={() => setActiveTab("quest")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+              activeTab === "quest"
+                ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10"
+                : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+            }`}
+          >
+            <Trophy className="w-3.5 h-3.5" />
+            Học Sinh: Thử Thách Quét Trạm
+          </button>
+
+          <button
+            onClick={() => setActiveTab("teacher")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+              activeTab === "teacher"
+                ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/10"
+                : "text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            Giáo Viên: Dashboard Lớp
+          </button>
+        </nav>
+      </header>
+
+      {/* Synchronized Classroom broadcast banner alert */}
+      {broadcastNotification && (
+        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 text-slate-950 text-xs font-bold px-4 py-2.5 text-center flex items-center justify-center gap-2 shadow-lg animate-slide-in sticky top-[72px] z-40">
+          <Sparkles className="w-4 h-4 text-slate-950 animate-bounce" />
+          <span>{broadcastNotification}</span>
+        </div>
+      )}
+
+      {/* Main Container Stage */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-8 relative z-10 flex flex-col justify-stretch">
+        
+        {/* VIEW 1: STUDIO DESIGN OVERVIEW */}
+        {activeTab === "design" && (
+          <div className="space-y-6 flex flex-col h-full animate-fade-in">
+            {/* Introductory Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 shadow-lg space-y-2">
+                <span className="text-xs font-mono text-indigo-400 font-bold uppercase tracking-wider">MỤC TIÊU SƯ PHẠM</span>
+                <h3 className="font-bold text-slate-200 text-sm">Phương Pháp Thực Chứng</h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Thay vì học chay vẹt lòng, học sinh tự tay điều khiển tỉ lệ quy mô hành tinh, 
+                  thả rơi các tàu thám hiểm dưới gia tốc khác nhau để trực quan hóa các kiến thức trừu tượng.
+                </p>
+              </div>
+
+              <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 shadow-lg space-y-2">
+                <span className="text-xs font-mono text-cyan-400 font-bold uppercase tracking-wider">CÔNG NGHỆ CỐT LÕI</span>
+                <h3 className="font-bold text-slate-200 text-sm">Haptic & Multi-sensory AR</h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Tích hợp cảm nhận lực va chạm rung phản hồi, hình ảnh 3 chiều AR di động, 
+                  và AI thuyết minh âm học giọng nói sống động tăng cường 80% chỉ số ghi nhớ của trẻ em.
+                </p>
+              </div>
+
+              <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 shadow-lg space-y-2">
+                <span className="text-xs font-mono text-emerald-400 font-bold uppercase tracking-wider">QUẢN TRỊ HIỆU QUẢ</span>
+                <h3 className="font-bold text-slate-200 text-sm">Gaze Sync & Assessment</h3>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Giúp giáo viên đồng bộ tiêu điểm góc nhìn lớp học, không cho trẻ xao nhãng, 
+                  đồng thời thu thập kết quả học tập nhanh biểu thị tức thì dưới dạng biểu đồ khoa học.
+                </p>
+              </div>
+            </div>
+
+            {/* Instruction customizer generator */}
+            <InstructionGenerator />
+          </div>
+        )}
+
+        {/* VIEW 2: DETAILED PHYSICAL SIMULATOR LAB */}
+        {activeTab === "simulator" && (
+          <div className="space-y-6 flex flex-col h-full animate-fade-in">
+            {/* Banner info selected planet */}
+            <div className="bg-slate-900 border border-slate-800 rounded-xl px-5 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: selectedPlanet.color }}></span>
+                  <h2 className="font-bold text-lg text-slate-100">
+                    Thám Hiểm Mục Tiêu: {selectedPlanet.name} ({selectedPlanet.englishName})
+                  </h2>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5 max-w-2xl leading-relaxed">
+                  {selectedPlanet.description}
+                </p>
+              </div>
+              <div className="flex gap-1 bg-slate-950 p-1.5 rounded-lg border border-slate-800 self-start md:self-auto text-xs font-mono">
+                <span className="text-slate-500 font-semibold px-2">Đường kính:</span>
+                <span className="text-indigo-400 font-bold pr-2">{selectedPlanet.diameter.toLocaleString()} km</span>
+              </div>
+            </div>
+
+            {/* Bento interactive grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+              {/* Giant Left Column: Interactive Solar System Canvas */}
+              <div className="lg:col-span-7 flex flex-col justify-between">
+                <InteractiveOrbit 
+                  selectedPlanet={selectedPlanet} 
+                  onSelectPlanet={setSelectedPlanet}
+                  timeSpeed={timeSpeed}
+                  setTimeSpeed={setTimeSpeed}
+                  isARMode={isARMode}
+                  setIsARMode={setIsARMode}
+                />
+              </div>
+
+              {/* Right Column: Virtual Telescope with TTS Thuyết minh */}
+              <div className="lg:col-span-5">
+                <TelescopeLab currentPlanet={selectedPlanet} />
+              </div>
+            </div>
+
+            {/* Secondary horizontal grid: Physics Gravity drop and Scale Lab */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+              <div>
+                <GravityLab currentPlanet={selectedPlanet} />
+              </div>
+              <div>
+                <ScaleComparison currentPlanet={selectedPlanet} />
+              </div>
             </div>
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left Column: Input + AI Agent Bubble (7 cols) */}
-          <div className="lg:col-span-7 space-y-8">
-            <PasswordInputZone onPasswordChange={handlePasswordChange} />
-
-            {/* AI Guide Live Interaction Status Box */}
-            <div className="bg-white rounded-3xl p-6 border-4 border-sky-100 shadow-xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 bg-sky-500 text-white text-[10px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-wider">
-                Người Hướng dẫn AI
-              </div>
-              <div className="flex gap-4 items-start">
-                <div className="text-4xl bg-sky-50 p-3 rounded-2xl shrink-0">
-                  👩‍🏫
-                </div>
-                <div className="space-y-2">
-                  <h3 className="font-bold text-sky-950 text-base flex items-center gap-1.5">
-                    Lời Khuyên Từ Chỉ Huy AI
-                    {isAnalyzing && (
-                      <span className="inline-block w-2.5 h-2.5 bg-sky-500 rounded-full animate-ping" />
-                    )}
-                  </h3>
-                  <div className={`text-sm leading-relaxed font-medium ${aiFeedback.startsWith("🔴") ? "text-rose-600 font-bold" : "text-sky-800"}`}>
-                    {password ? aiFeedback : "Nhập một mật mã bất kỳ vào ô chế tạo bên trên để nhận được lời khuyên, gợi ý và giải mã trực tiếp từ ta nha!"}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* AI Chat box for Q&A */}
-            <SafetyGuideChat 
-              onQuestionAsked={handleQuestionAsked} 
-              aiFeedbackText={password && !isAnalyzing ? aiFeedback : undefined}
-              apiKey={apiKey}
-              selectedModel={selectedModel}
-            />
+        {/* VIEW 3: GAMIFIED LOST PLANET QUEST */}
+        {activeTab === "quest" && (
+          <div className="max-w-3xl w-full mx-auto flex flex-col h-full justify-center animate-fade-in">
+            <LostPlanetQuest />
           </div>
+        )}
 
-          {/* Right Column: Simulations + Achievements (5 cols) */}
-          <div className="lg:col-span-5 space-y-8">
-            <RobotCracker
-              passwordLength={password.length}
-              strength={strength}
-              properties={properties}
-            />
-
-            <BadgeCollection badges={badges} />
+        {/* VIEW 4: TEACHER CLASSROOM SYNCHRONIZATION DASHBOARD */}
+        {activeTab === "teacher" && (
+          <div className="max-w-4xl w-full mx-auto flex flex-col h-full justify-center animate-fade-in">
+            <TeacherDashboard onBroadcastPlanet={handleTeacherBroadcast} />
           </div>
-        </div>
+        )}
 
-        {/* Static privacy and educative footer */}
-        <footer className="mt-12 border-t-4 border-sky-100 pt-8 flex flex-col md:flex-row items-center justify-between text-sky-900/40 text-xs font-bold uppercase tracking-wider gap-4">
-          <p>🛡️ Phòng Thí nghiệm Bảo mật Hoạt động Ngoại tuyến Toàn bộ</p>
-          <p>© 2026 Đặc vụ Mật mã nhí — Bảo mật & Giáo dục</p>
-        </footer>
       </main>
 
-      {/* Settings Modal */}
-      {showSettingsModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border-4 border-sky-100 p-6 max-w-md w-full shadow-2xl space-y-5 animate-in fade-in-50 zoom-in-95 duration-200 relative text-sky-950 font-sans">
-            <h2 className="text-xl font-black text-sky-950 flex items-center gap-2">
-              ⚙️ Cài đặt Model & API Key
-            </h2>
-            
-            <div className="space-y-2">
-              <label className="block text-sm font-bold text-sky-900/80">
-                1. Nhập Gemini API Key
-              </label>
-              <input
-                type="text"
-                value={tempApiKey}
-                onChange={(e) => setTempApiKey(e.target.value)}
-                placeholder="Nhập AI Studio API Key..."
-                className="w-full px-4 py-3 bg-sky-50/50 border-2 border-sky-100 rounded-xl focus:border-sky-400 focus:outline-none font-mono text-sm"
-              />
-              <p className="text-xs text-sky-700/80 leading-relaxed font-medium">
-                Để lấy API key miễn phí, bé hãy cùng bố mẹ truy cập:{" "}
-                <a 
-                  href="https://aistudio.google.com/api-keys" 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="text-sky-600 font-black hover:underline"
-                >
-                  Google AI Studio 🔑
-                </a>
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              <label className="block text-sm font-bold text-sky-900/80">
-                2. Chọn Model AI xử lý
-              </label>
-              
-              <div className="grid grid-cols-1 gap-2.5">
-                {[
-                  { id: "gemini-3-flash-preview", name: "gemini-3-flash-preview (Mặc định)", desc: "Xử lý siêu tốc, phản hồi nhanh" },
-                  { id: "gemini-3-pro-preview", name: "gemini-3-pro-preview", desc: "Thông minh vượt trội, bảo mật cao" },
-                  { id: "gemini-2.5-flash", name: "gemini-2.5-flash", desc: "Mẫu ổn định, đa năng" }
-                ].map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => setTempModel(m.id)}
-                    className={`p-3.5 rounded-2xl border-3 text-left transition-all cursor-pointer ${
-                      tempModel === m.id
-                        ? "border-sky-500 bg-sky-50 shadow-sm"
-                        : "border-gray-100 bg-white hover:bg-gray-50"
-                    }`}
-                  >
-                    <p className="font-bold text-xs text-sky-950">{m.name}</p>
-                    <p className="text-[10px] text-sky-700/70 font-bold mt-1">{m.desc}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              {apiKey && (
-                <button
-                  type="button"
-                  onClick={() => setShowSettingsModal(false)}
-                  className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 text-sm font-bold rounded-2xl transition-all cursor-pointer border border-slate-200"
-                >
-                  Đóng
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={handleSaveSettings}
-                disabled={!tempApiKey.trim()}
-                className={`flex-1 py-3 text-sm font-bold rounded-2xl text-white shadow-md transition-all cursor-pointer ${
-                  !tempApiKey.trim()
-                    ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
-                    : "bg-sky-500 hover:bg-sky-600 active:scale-95"
-                }`}
-              >
-                Lưu Cài Đặt
-              </button>
-            </div>
+      {/* Footer copyright info */}
+      <footer className="bg-[#030712] border-t border-slate-900 py-6 px-4 text-center text-[11px] text-slate-500 mt-12 relative z-10 font-mono">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <span>
+            © 2026 Studio Thiết Kế Hệ Thống Giáo Dục AR - Vũ Trụ 3D Tương Tác
+          </span>
+          <div className="flex items-center gap-3">
+            <span>Sư phạm Kiến tạo</span>
+            <span>•</span>
+            <span>EdTech Lab</span>
+            <span>•</span>
+            <span>Thực thể Tăng cường</span>
           </div>
         </div>
-      )}
+      </footer>
     </div>
   );
 }

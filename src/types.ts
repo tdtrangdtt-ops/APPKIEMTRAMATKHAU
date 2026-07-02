@@ -1,33 +1,59 @@
-export type PasswordStrength = 'weak' | 'medium' | 'strong' | 'legendary';
-
-export interface Badge {
+export interface Planet {
   id: string;
   name: string;
+  englishName: string;
+  diameter: number; // in km
+  mass: string; // in kg (scientific notation e.g. 5.97e24)
+  gravity: number; // m/s^2
+  dayDuration: number; // Earth days or hours
+  orbitRadius: number; // relative size for canvas
+  orbitSpeed: number; // speed coefficient
+  color: string;
+  secondaryColor?: string;
   description: string;
-  icon: string;
-  unlocked: boolean;
-  criteria: string;
+  funFact: string;
+  arDetails: {
+    coreTemperature: string;
+    atmosphere: string;
+    moonsCount: number;
+    yearDuration: string;
+  };
 }
 
-export interface CrackMethod {
+export interface Student {
   id: string;
   name: string;
-  timeToCrack: string;
-  description: string;
-  iconName: string;
-  isVulnerable: boolean;
+  avatar: string;
+  activePlanet: string;
+  gazeX: number; // simulated interactive focal point on canvas
+  gazeY: number;
+  attentionRate: number; // percentage (dynamic)
+  flashcardsCollected: number;
+  connected: boolean;
+  quizAnswers: { [quizId: string]: number }; // questionIndex -> selectedOptionIndex
 }
 
-export interface ChatMessage {
-  id: string;
-  sender: 'user' | 'ai';
-  text: string;
-  timestamp: number;
+export interface QuizQuestion {
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
 }
 
-export interface SensitivePattern {
-  name: string;
-  detected: boolean;
-  reason: string;
-  suggestion: string;
+export interface SystemInstructionParams {
+  grade: number;
+  mainFocus: string;
+  pedagogicalFramework: string;
+  narratorVoice: string;
+}
+
+export interface LessonPlan {
+  title: string;
+  objectives: string[];
+  arSequence: {
+    step: string;
+    action: string;
+    dialogue: string;
+  }[];
+  assessment: string[];
 }
